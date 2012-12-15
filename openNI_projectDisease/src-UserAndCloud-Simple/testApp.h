@@ -4,7 +4,10 @@
 #include "ofxOpenNI.h"
 #include "ofMain.h"
 #include "ofxXmlSettings.h"
-
+#include "ofxTweenzor.h"
+#include "ofxUI.h"
+#include "JointRoute.h" 
+#include "Agent.h"
 
 #define USE_ONI_MOVIE 2
 class testApp : public ofBaseApp{
@@ -37,21 +40,54 @@ public:
     bool bFullscreen ;
     void resetRoi( ) ; 
     
+    
+    bool bDrawOpenNI ; 
     void saveRoiCalibration ( ) ;
     void loadRoiCalibration ( ) ;
     
+    bool bDepthRegistration ; 
     ofxXmlSettings roiCalibration ;
 
-    ofxOpenNI openNIPlayer;
+    //ofxOpenNI openNIPlayer;
     
     bool bCalibrateSpace ;
-    bool bRecording ;
+       
+    void customDraw ( ) ;
     
-    void customDraw ( ) ; 
+    //ofxUI stuff
+    bool bShowGui ; 
+    ofxUICanvas *gui;
+    void guiEvent(ofxUIEventArgs &e);
+    void init_ofxUI ( ) ;
     
     
+    vector<JointRoute> jointRoutes ;
+
+    vector<Agent> agents ; 
+    int maxParticles ;
+    float maxVelocity , maxForce ;
+    float bufferDistance ;
+
     
-  
+    void setParticleParams() ;
+
+    float lastSpawn ;
+    float spawnDelay ;
+    int spawnPerBeat ;
+    
+    //vector<ofPoint> fakeSkeleton ;
+    vector<ofPoint> skeleton ;
+    bool bSkeletonActive ; 
+    
+    float pointSize ;
+    
+    ofFbo fbo ;
+    
+    float fadeFboAmount ;
+    
+    vector<ofColor> colorPool ;
+    ofColor getRandomColor ( ) ; 
+    
 };
 
 #endif

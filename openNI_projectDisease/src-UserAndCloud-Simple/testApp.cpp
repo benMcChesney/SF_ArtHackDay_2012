@@ -3,8 +3,11 @@
 //--------------------------------------------------------------
 void testApp::setup() {
     
-    ofSetLogLevel(OF_LOG_VERBOSE);
+    Tweenzor::init( ) ; 
+    ofSetLogLevel(OF_LOG_WARNING);
 
+        bDrawOpenNI = false;
+     
 //#ifndef USE_ONI_MOVIE
     openNIDevice.setup();
     openNIDevice.addImageGenerator();
@@ -12,7 +15,7 @@ void testApp::setup() {
     openNIDevice.setRegister(true);
     openNIDevice.setMirror(false);
     openNIDevice.addUserGenerator();
-    openNIDevice.setMaxNumUsers(2);
+    openNIDevice.setMaxNumUsers(4);
     openNIDevice.start();
     
     // set properties for all user masks and point clouds
@@ -31,7 +34,7 @@ void testApp::setup() {
 //    openNIDevice.setBaseUserClass(user);
 //#endif
 
-    
+    /*
     openNIPlayer.setup();
     openNIPlayer.addImageGenerator();
     openNIPlayer.addDepthGenerator();
@@ -42,10 +45,15 @@ void testApp::setup() {
 	openNIPlayer.start();
     
     openNIPlayer.setUseMaskTextureAllUsers(true); // this turns on mask pixels internally AND creates mask textures efficiently
-    openNIPlayer.setUsePointCloudsAllUsers(false);
+    openNIPlayer.setUsePointCloudsAllUsers(false);*/
    // openNIPlayer.setPointCloudDrawSizeAllUsers(2); // size of each 'point' in the point cloud
    // openNIPlayer.setPointCloudResolutionAllUsers(2); // resolution of the mesh created for the point cloud eg., this will use every second depth pixel
-
+    
+    colorPool.push_back( ofColor( 242, 56 , 90 ) ) ;
+    colorPool.push_back( ofColor( 245, 165 , 3 ) ) ;
+    colorPool.push_back( ofColor( 233, 241 , 223 ) ) ;
+    colorPool.push_back( ofColor( 74, 217 , 217 ) ) ;
+    colorPool.push_back( ofColor( 54, 177 , 191 ) ) ;
     verdana.loadFont(ofToDataPath("verdana.ttf"), 24);
     
     roiArea = ofRectangle( ofRandomWidth() , ofRandomHeight() , ofRandomWidth() , ofRandomHeight() ) ;
@@ -53,15 +61,124 @@ void testApp::setup() {
     bFullscreen = false ;
     
     bCalibrateSpace = true ;
-    bRecording = false ;
+       
+    loadRoiCalibration() ;
     
-    loadRoiCalibration() ; 
+    init_ofxUI ( ) ;
+    
+    for ( int i = 0 ; i < 15 ; i++ )
+    {
+        JointRoute jr ;
+        jointRoutes.push_back( jr ) ;
+        skeleton.push_back ( ofPoint() ) ; 
+    }
+    
+    jointRoutes[0].addIndex(1) ;
+    jointRoutes[0].addIndex(9) ;
+    jointRoutes[0].addIndex(12) ;
+    
+    jointRoutes[1].addIndex(3) ;
+    jointRoutes[1].addIndex(6) ;
+    jointRoutes[1].addIndex(2) ;
+    jointRoutes[2].addIndex(-1) ;
+    
+    jointRoutes[3].addIndex(4) ;
+    jointRoutes[3].addIndex(4) ;
+    jointRoutes[4].addIndex(5) ;
+    jointRoutes[4].addIndex(5) ;
+    jointRoutes[5].addIndex(-1) ;
+    
+    jointRoutes[6].addIndex(7) ;
+    jointRoutes[6].addIndex(7) ;
+    jointRoutes[7].addIndex(8) ;
+    jointRoutes[7].addIndex(8) ;
+    jointRoutes[8].addIndex(-1) ;
+    jointRoutes[9].addIndex(10) ;
+    jointRoutes[10].addIndex(11) ;
+    jointRoutes[11].addIndex(-1) ;
+    
+    jointRoutes[12].addIndex(13) ;
+    jointRoutes[13].addIndex(14) ;
+    jointRoutes[14].addIndex(-1) ;
+
+    
+    lastSpawn = 0 ;
+    spawnDelay = 1.5f ;
+    bDepthRegistration = false ;
+      
+    fbo.allocate( ofGetWidth() , ofGetHeight() , GL_RGBA ) ;
+    fbo.begin() ;
+        ofClear( 1 , 1 , 1, 0 ) ; 
+    fbo.end() ;
+
+    bSkeletonActive = false ;
+
+}
+
+ofColor testApp::getRandomColor ( )
+{
+    return colorPool[ (int) ofRandom( colorPool.size() ) ] ; 
 }
 
 //--------------------------------------------------------------
 void testApp::update(){
+    
+    
+    ofSetWindowTitle( "FPS : " + ofToString( ofGetFrameRate() ) ) ; 
+    Tweenzor::update( ofGetElapsedTimeMillis() ) ; 
     openNIDevice.update();
-    openNIPlayer.update();
+    //openNIPlayer.update();
+    
+    /*
+    vector<Agent>::iterator it = agents.begin() ;
+    while ( it != agents.end() )
+    {
+//        float dist = (*it).position.distanceSquared( (*it).target ) ;
+        (*it).update( ) ; 
+        it++ ; 
+    }
+    */
+    float xRatio = (float)ofGetWidth() / (float)roiArea.width;
+
+    if ( bSkeletonActive == true )
+    {
+        vector<Agent>::iterator it = agents.begin() ;
+        while ( it != agents.end() )
+        {
+            (*it).target = skeleton[(*it).targetIndex] ;
+           // (*it).target.x *= xRatio ;
+            //(*it).target.y *= xRatio ;
+            
+            if ( (*it).changeTarget == true )
+            {
+                (*it).changeTarget = false ; 
+                int newIndex = jointRoutes[(*it).targetIndex].getRandomTargetIndex() ;
+                //cout << "change target :: currentIndex : " << (*it).targetIndex << endl ;
+                //cout << "NEW TARGET : " << newIndex << endl ;
+                if ( newIndex == -1 )
+                {
+                    it = agents.erase( it ) ;
+                }
+                else
+                {
+                    (*it).targetIndex = newIndex ;
+                    (*it).force = ofVec3f( ofRandom ( 0 , TWO_PI )  ,  ofRandom ( 0 , TWO_PI )  ,  ofRandom ( 0, TWO_PI )  ) ;
+
+                    it++ ;
+                }
+                
+            }
+            else
+                it++ ;
+            
+           
+            (*it).update( ) ;
+        
+        }
+    }
+   // }
+    
+
 }
 
 //--------------------------------------------------------------
@@ -69,68 +186,93 @@ void testApp::draw(){
 	ofSetColor(255, 255, 255);
     
     ofBackground( 0 , 0 , 0 ) ;
-    customDraw() ;
-    return ;
-    
-    ofPushMatrix() ; 
-    //ofScale( 0.75 , 0.75 , 1 ) ;
-    
+       
+    string status = "# of agents : " + ofToString( agents.size() ) + " bSkeletonActive : " + ofToString( bSkeletonActive ) ;
+    ofDrawBitmapStringHighlight( status , 15 , ofGetHeight() - 50 ) ; 
+       
+     
+
     if ( bCalibrateSpace == true )
     {
-        ofSetColor( 255 , 255 , 0 ) ;
-        ofNoFill() ;
-        ofSetLineWidth( 3 ) ;
-        ofRect( roiArea ) ;
-        ofSetLineWidth( 1 ) ;
-        ofFill() ;
-        string calibrateString = "CALIBRATING WORLD SPACE!!! \nRECORDING : " + ofToString ( bRecording )  ; 
+        string calibrateString = "CALIBRATING WORLD SPACE!!!" ;
         ofDrawBitmapStringHighlight( calibrateString , 15 , 700 ) ;
         
         ofSetColor( 255 , 255 , 255 ) ;
         ofPushMatrix();
-            openNIDevice.drawDebug() ;
-            openNIPlayer.drawDebug(0, 480 );
-           // openNIDevice.drawMatchedDebug( 0 , 0 , openNIDevice.getWidth() , openNIDevice.getHeight() );
+            if ( bDrawOpenNI == true ) 
+                openNIDevice.drawDebug() ;
+        
         ofPopMatrix();
+       // if ( bUseRoi )
+        //{
+                  // }
+
     }
+    
+    
     
     ofPushMatrix();
     // use a blend mode so we can see 'through' the mask(s)
     ofEnableBlendMode(OF_BLENDMODE_ALPHA);
     
-    // get number of current users
-    int numUsers = openNIPlayer.getNumTrackedUsers();
-   
-    ofPushMatrix() ;
-    //ofTranslate( 0 , 480 ) ;
-    // iterate through users
-    for (int i = 0; i < numUsers; i++){
-        ofxOpenNIUser & user = openNIPlayer.getTrackedUser(i);
-        user.drawMask();
-        user.drawSkeleton() ; 
-    }
-    ofPopMatrix() ; 
-    
-    numUsers = openNIDevice.getNumTrackedUsers();
-    // iterate through users
-    for (int i = 0; i < numUsers; i++){
-        ofxOpenNIUser & user = openNIDevice.getTrackedUser(i);
-        user.drawMask();
-        user.drawSkeleton() ;
-    }
+    int numUsers = openNIDevice.getNumTrackedUsers();
+    if ( numUsers > 0 )
+        bSkeletonActive = true ;
+    else
+        bSkeletonActive = false;
      
     
     ofDisableBlendMode();
     ofPopMatrix();
     
+    if ( bSkeletonActive == true )
+        customDraw() ;
     
-    // draw some info regarding frame counts etc
-	ofSetColor(0, 255, 0);
-	string msg = " MILLIS: " + ofToString(ofGetElapsedTimeMillis()) + " FPS: " + ofToString(ofGetFrameRate()) + " Device FPS: " + ofToString(openNIDevice.getFrameRate());
+     ofDisableBlendMode();
+    ofEnableAlphaBlending() ;
+    ofSetColor( 255 , 255 , 255 ) ;
+  
     
-    ofDrawBitmapStringHighlight(msg, 15 , ofGetHeight() - 45 ) ; 
-    //verdana.drawString(msg, 20, openNIPlayer.getNumDevices() * 480 - 20);
+    ofSetColor( 255 , 255 , 0 ) ;
+    ofNoFill() ;
+    ofSetLineWidth(5 ) ;
+    ofRect( roiArea ) ;
+    ofSetLineWidth( 1 ) ;
+    ofFill() ;
+        
+    fbo.begin() ;
        
+        ofSetColor( 0 , 0 , 0, fadeFboAmount ) ;
+        ofRect( 0 , 0, ofGetWidth() , ofGetHeight() ) ;
+    if ( bSkeletonActive == true )
+    {
+        //ofTranslate( -roiArea.x , -roiArea.y ) ;
+        ofMesh mesh ;
+        
+        for ( int i = 0 ; i < agents.size() ; i++ )
+        {
+            mesh.addVertex( agents[i].position ) ;
+            mesh.addColor ( agents[i].color ) ;
+        }
+        
+        glPointSize( pointSize ) ;
+        mesh.setMode( OF_PRIMITIVE_POINTS ) ;
+        ofSetColor( 255 , 255 , 255 ) ;
+        mesh.draw( ) ;
+    }
+    fbo.end() ;
+  
+    
+    ofSetColor( 255 , 255 , 255 ) ;
+    float ratio =  9.0f /16.0f ;
+     float xRatio = (float)ofGetWidth() / (float)roiArea.width;
+    float h = ofGetWidth() * ratio ;
+    ofPushMatrix() ;
+        ofTranslate( -roiArea.x , -roiArea.y ) ;
+        fbo.draw( 0 , 0  , fbo.getWidth() * xRatio , fbo.getHeight()  ) ;
+    ofPopMatrix() ;
+    return ;
+   
     if ( bFullscreen )
     {
         ofSetColor( 255 , 255 , 255 ) ;
@@ -138,7 +280,7 @@ void testApp::draw(){
         ofPushMatrix();
         // draw debug (ie., image, depth, skeleton)
         ofTranslate( -roiArea.x , -roiArea.y ) ;
-        openNIDevice.drawMatchedDebug( 0 , 0 , openNIDevice.getWidth() , openNIDevice.getHeight() );
+        openNIDevice.drawMatchedDebug( 0 , 0  , -1 , -1 );
         ofPopMatrix();
         roiFbo.end() ;
         
@@ -149,6 +291,8 @@ void testApp::draw(){
         roiFbo.draw( 0 , 0 , ofGetWidth() , h ) ;
     }
     ofPopMatrix() ; 
+    
+    ofEnableAlphaBlending() ; 
 }
 
 void testApp::resetRoi( )
@@ -166,7 +310,9 @@ void testApp::saveRoiCalibration ( )
     roiArea.y = roiCalibration.setValue( "y" , roiArea.y ) ;
     roiArea.width = roiCalibration.setValue( "width" , roiArea.width ) ;
     roiArea.height = roiCalibration.setValue( "height" , roiArea.height ) ;
-    roiCalibration.saveFile( "roiCalibration.xml" ) ; 
+    roiCalibration.saveFile( "roiCalibration.xml" ) ;
+    
+    bUseRoi = true ; 
 
 }
 
@@ -185,7 +331,7 @@ void testApp::loadRoiCalibration ( )
     else
     {
         ofLog( OF_LOG_WARNING , "XML could not be loaded !" ) ;
-        bUseRoi = true  ;
+        bUseRoi = false  ;
     }
 }
 
@@ -256,14 +402,15 @@ void testApp::keyPressed(int key){
             break ;
             
         case ' ':
-            
+            agents.clear() ;
+            /*
             if(!openNIDevice.isRecording()){
                 openNIDevice.startRecording(ofToDataPath("test.oni"));
                 bRecording = true ; 
             }else{
                 openNIDevice.stopRecording();
                 bRecording = false ; 
-            }
+            }*/
             break;
         case 'c':
         case 'C':
@@ -271,32 +418,43 @@ void testApp::keyPressed(int key){
             break ; 
         case 'p':
         case 'P':
-            openNIPlayer.startPlayer("keeper.oni");
+          //  openNIPlayer.startPlayer("keeper.oni");
             break;
         case '/':
-            openNIPlayer.setPaused(!openNIPlayer.isPaused());
+            //openNIPlayer.setPaused(!openNIPlayer.isPaused());
             break;
         case 'm':
         case 'M':
-            openNIPlayer.firstFrame();
+            //openNIPlayer.firstFrame();
             break;
         case '<':
         case ',':
-            openNIPlayer.previousFrame();
+            //openNIPlayer.previousFrame();
             break;
         case '>':
         case '.':
-            openNIPlayer.nextFrame();
+            //openNIPlayer.nextFrame();
             break;
         case 'x':
         case 'X':
-            openNIDevice.stop();
-            openNIPlayer.stop();
+            //openNIDevice.stop();
+            //openNIPlayer.stop();
             break;
         case 't':
         case 'T':
             openNIDevice.toggleRegister();
             break;
+        case 'g':
+        case 'G':
+            
+            bShowGui = !bShowGui ;
+            gui->toggleVisible();
+            /*
+            if ( bShowGui )
+                gui->disable() ;
+            else
+                gui->enable() ;*/
+            break ; 
     }
 }
 
@@ -313,11 +471,30 @@ void testApp::customDraw ( )
     ofColor col1 = ofColor( 0 , 255 , 0 ) ;
     ofColor col2 = ofColor( 0 , 0 , 255 ) ;
     
+    /*
+ 
+    for ( int i = 0 ; i < fakeSkeleton.size() ; i++ )
+    {
+        float ratio = ( float ) i / ( float ) fakeSkeleton.size() ;
+        ofPoint p = fakeSkeleton[i] ;
+        ofColor c = col1.lerp( col2, ratio ) ;
+        ofSetColor( c ) ;
+       
+        //ofCircle( p.x , p.y , 15 ) ;
+        ofDrawBitmapStringHighlight( ofToString(i) , p.x , p.y - 15 ) ;
+    }
+  */
+     //   return ;
+    
+    
+    float xRatio = (float)ofGetWidth() / (float)roiArea.width;
+    //xRatio *= .5 ;
+
     for (int i = 0; i < numUsers; i++)
     {
         ofxOpenNIUser & user = openNIDevice.getTrackedUser(i);
-        user.drawMask();
-        
+       // user.drawMask();
+               
         int numLimbs = user.getNumJoints() ;
         for ( int j = 0 ; j < user.getNumJoints() ; j++ )
         {
@@ -325,6 +502,10 @@ void testApp::customDraw ( )
             
             ofxOpenNIJoint joint = user.joints[j] ;
             ofPoint p = joint.getProjectivePosition() ;
+            p.z = 0 ;
+            p.x *= xRatio ;
+            p.y *= xRatio ;
+            skeleton[j] = p ;
             //cout << " joint[" << j << "] : " << p << endl ;
             ofColor c = col1.lerp( col2, ratio ) ;
             ofSetColor( c ) ;
@@ -334,7 +515,154 @@ void testApp::customDraw ( )
         
         //user.drawSkeleton() ;
     }
+    
+    if ( ofGetElapsedTimef() > ( lastSpawn + spawnDelay ) )
+    {
+        for ( int i = 0 ; i < spawnPerBeat ; i++ )
+        {
+            if ( agents.size() < maxParticles )
+            {
+                Agent a ;
+                int index = (int)jointRoutes[0].getRandomTargetIndex() ;
+                
+                ofPoint randomOffset = ofPoint ( ofRandom ( -25 , 25 ) , ofRandom ( -25 , 25 ) ) ;
+                ofPoint p = skeleton[0] + randomOffset ;
 
+                a.setup( p ,  skeleton[index] , index ) ;
+                ofColor col = getRandomColor() ;
+                a.color = col ; 
+                agents.push_back( a )  ;
+            }
+            
+        }
+        
+        lastSpawn = ofGetElapsedTimef() ; 
+        setParticleParams() ; 
+    }
+
+}
+
+void testApp::setParticleParams()
+{
+    for ( int i = 0 ; i < agents.size() ; i++ )
+    {
+        agents[i].bufferDistance = ofRandom( bufferDistance * .5 , bufferDistance * 1.5 ) ;
+        agents[i].maxVelocity  = ofRandom( maxVelocity * .5 , maxVelocity * 1.5 )  ;
+        agents[i].maxForce = ofRandom( maxForce * .5 , maxForce * 1.5 )  ;
+    }
+}
+
+
+void testApp::guiEvent(ofxUIEventArgs &e)
+{
+    string name = e.widget->getName();
+	int kind = e.widget->getKind();
+	//cout << "got event from: " << name << endl;
+	
+    /*
+	if(name == "RED")
+	{
+		ofxUISlider *slider = (ofxUISlider *) e.widget;
+		cout << "RED " << slider->getScaledValue() << endl;
+		//red = slider->getScaledValue();
+	}
+     */
+    
+   
+    if ( name == "NUM PARTICLES")
+    {
+        maxParticles = ( (ofxUISlider *) e.widget)->getScaledValue() ;
+    }
+    
+    if ( name == "MAX VELOCITY")
+    {
+        maxVelocity = ( (ofxUISlider *) e.widget)->getScaledValue() ;
+        setParticleParams( ) ; 
+    }
+    
+    if ( name == "MAX FORCE")
+    {
+        maxForce = ( (ofxUISlider *) e.widget)->getScaledValue() ;
+        setParticleParams( ) ; 
+    }
+    
+    if ( name == "BUFFER DISTANCE")
+    {
+        bufferDistance = ( (ofxUISlider *) e.widget)->getScaledValue() ;
+        setParticleParams( ) ;
+    }
+    
+    if ( name == "POINT SIZE")
+    {
+        pointSize = ( (ofxUISlider *) e.widget)->getScaledValue() ;
+    }
+    
+    if ( name == "FBO FADE AMOUNT" )
+    {
+        fadeFboAmount = ( (ofxUISlider *) e.widget)->getScaledValue() ;
+    }
+    
+    if ( name == "SPAWN DELAY" )
+    {
+        spawnDelay = ( (ofxUISlider *) e.widget)->getScaledValue() ;
+    }
+    
+    if ( name == "SPAWN PER BEAT" )
+    {
+        spawnPerBeat = ( (ofxUISlider *) e.widget)->getScaledValue() ;
+    }
+    
+    if ( name == "CALIBRATE SPACE" )
+    {
+        bCalibrateSpace = (( ofxUIToggle *) e.widget )->getValue( );
+    }
+    
+    if ( name == "DRAW OPENNI" )
+    {
+        bDrawOpenNI = (( ofxUIToggle *) e.widget )->getValue( );
+    }
+    
+    if ( name == "DEPTH REGISTER" )
+    {
+        openNIDevice.setRegister( (( ofxUIToggle *) e.widget )->getValue( ) ) ;
+    }
+    //"DEPTH REGISTER"
+    
+    /*
+     
+        openNIPlayer.setRegister(true);
+     */
+    gui->saveSettings("GUI/guiSettings.xml");
+    
+}
+
+void testApp::init_ofxUI ( )
+{
+    bShowGui = true ;
+    
+    float dim = 16;
+	float xInit = OFX_UI_GLOBAL_WIDGET_SPACING;
+    float length = 255-xInit;
+    
+    gui = new ofxUICanvas( 0, 0, length, ofGetHeight() ) ;
+     gui->setDrawBack(false);
+    gui->addSlider("NUM PARTICLES", 10, 50000 , maxParticles , length , dim ) ;
+    gui->addSlider("MAX VELOCITY", 0.001f, 12.0f , maxVelocity , length , dim ) ;
+    gui->addSlider("MAX FORCE", 0.001f , 2.0f , maxForce , length , dim ) ;
+    gui->addSlider("BUFFER DISTANCE", 5.0f , 250.0f , bufferDistance , length , dim ) ;
+    gui->addSlider("POINT SIZE", 1.0f , 7.0f , pointSize , length , dim ) ;
+    gui->addSlider("FBO FADE AMOUNT", 0.0f , 75.0f , fadeFboAmount , length , dim ) ;
+    gui->addSlider("SPAWN DELAY", 0.0001f , 4.0f , spawnDelay , length , dim ) ;
+    gui->addSlider("SPAWN PER BEAT", 1.0f , 400.0f , spawnPerBeat , length , dim ) ;
+    gui->addToggle("CALIBRATE SPACE", bCalibrateSpace , dim * 2 , dim * 2 ) ; 
+    gui->addToggle("DRAW OPENNI", bDrawOpenNI , dim * 2 , dim * 2 ) ;
+    gui->addToggle("DEPTH REGISTER", bDepthRegistration , dim * 2 , dim * 2 ) ;
+    //bDepthRegistration
+    //
+       ofAddListener(gui->newGUIEvent,this,&testApp::guiEvent);
+    gui->loadSettings("GUI/guiSettings.xml" )  ;
+    
+    
 }
 
 //--------------------------------------------------------------
@@ -344,16 +672,20 @@ void testApp::mouseMoved(int x, int y ){
 
 //--------------------------------------------------------------
 void testApp::mouseDragged(int x, int y, int button){
+    if ( x < 300 ) return ; 
     roiArea.width = x - roiArea.x ;
     roiArea.height = y - roiArea.y ;
-    bUseRoi = false ;
+    //bUseRoi = false ;
 }
 
 //--------------------------------------------------------------
 void testApp::mousePressed(int x, int y, int button){
+    if ( x < 300 ) return ; 
     roiArea.x = x ;
     roiArea.y = y ;
-    bUseRoi = false ;
+    //bUseRoi = false ;
+    
+    cout << " x : " << x << " y : " << y << endl ;
 }
 
 //--------------------------------------------------------------
@@ -361,9 +693,13 @@ void testApp::mouseReleased(int x, int y, int button){
     //roiArea.x = x ;
     //roiArea.y = y ;
     
+    if ( x < 300 ) return ; 
+    
     float ratio = 9.0f  /16.0f  ; // 480.0f / 640.0f ;
     
+
     roiArea.width = x - roiArea.x ;
+    roiArea.x -= 640 ; 
     roiArea.height = roiArea.width * ratio ;
     
     resetRoi( );
@@ -371,6 +707,7 @@ void testApp::mouseReleased(int x, int y, int button){
     bUseRoi = true ;
     
     saveRoiCalibration( ) ;
+    loadRoiCalibration() ; 
     
 
 }

@@ -1,0 +1,55 @@
+<Widget>
+    <Kind>4</Kind>
+    <Name>NUM PARTICLES</Name>
+    <Value>20451.253906250</Value>
+</Widget>
+<Widget>
+    <Kind>4</Kind>
+    <Name>MAX VELOCITY</Name>
+    <Value>1.749842048</Value>
+</Widget>
+<Widget>
+    <Kind>4</Kind>
+    <Name>MAX FORCE</Name>
+    <Value>0.527052641</Value>
+</Widget>
+<Widget>
+    <Kind>4</Kind>
+    <Name>BUFFER DISTANCE</Name>
+    <Value>21.862346649</Value>
+</Widget>
+<Widget>
+    <Kind>4</Kind>
+    <Name>POINT SIZE</Name>
+    <Value>3.113360405</Value>
+</Widget>
+<Widget>
+    <Kind>4</Kind>
+    <Name>FBO FADE AMOUNT</Name>
+    <Value>17.307691574</Value>
+</Widget>
+<Widget>
+    <Kind>4</Kind>
+    <Name>SPAWN DELAY</Name>
+    <Value>0.048681784</Value>
+</Widget>
+<Widget>
+    <Kind>4</Kind>
+    <Name>SPAWN PER BEAT</Name>
+    <Value>299.846160889</Value>
+</Widget>
+<Widget>
+    <Kind>2</Kind>
+    <Name>CALIBRATE SPACE</Name>
+    <Value>1</Value>
+</Widget>
+<Widget>
+    <Kind>2</Kind>
+    <Name>DRAW OPENNI</Name>
+    <Value>1</Value>
+</Widget>
+<Widget>
+    <Kind>2</Kind>
+    <Name>DEPTH REGISTER</Name>
+    <Value>0</Value>
+</Widget>
